@@ -1,0 +1,7 @@
+Django<4.0,>=3.2
+django-environ==0.12.0
+celery
+redis
+openai
+psycopg2-binary
+split-settings==1.0.0

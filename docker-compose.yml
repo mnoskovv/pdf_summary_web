@@ -1,0 +1,42 @@
+volumes:
+  data:
+  rabbitmq:
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      bash -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+    environment:
+      DJANGO_SETTINGS_MODULE: 'config.settings'
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    command: rabbitmq-server
+    restart: on-failure
+
+  celery:
+    build:
+      context: .
+    command: ["./wait-for-it.sh", "rabbitmq:5672", "--", "celery", "-A", "config", "worker", "-Q", "celery",
+              "-l", "DEBUG", "-n", "EcoreCeleryWorker", "-c", "5"]
+    volumes:
+      - .:/code
+    depends_on:
+      - rabbitmq
+    restart: on-failure
