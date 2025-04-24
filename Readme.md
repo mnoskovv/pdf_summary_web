@@ -1,4 +1,4 @@
-# Document Processor
+# PDF Summary Web
 
 This project is a simple document processing app designed to extract summaries from documents using OpenAI's API. It supports PDF file uploads, processes the content, and generates summaries.
 
@@ -15,7 +15,7 @@ This project is a simple document processing app designed to extract summaries f
 1. Clone this repository:
 ```bash
    git clone https://github.com/mnoskovv/pdf_summary_web.git
-   cd document-processor
+   cd pdf_summary_web
    cp .env.example .env
 ```
 2. Paste your OPENAI_API_KEY in .env
