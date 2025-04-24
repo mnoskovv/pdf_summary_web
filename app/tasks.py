@@ -11,6 +11,18 @@ def update_document_status(document, status):
 
 @shared_task
 def process_pdf(document_id):
+    """
+        This module defines Celery tasks for processing PDF documents.
+
+        Dependencies:
+            - Relies on the Document model for managing document data.
+            - Uses the OpenaiSettings model for configuration (e.g., summary prompt).
+            - Utilizes the extract_text_from_pdf function to extract text from PDF files.
+            - Interacts with OpenAI's ChatGPT API via the chatgpt function.
+
+        Usage:
+            - Call the `process_pdf` task with a document ID to process the document asynchronously.
+    """
     document = Document.objects.get(id=document_id)
 
     try:

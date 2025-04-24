@@ -17,6 +17,27 @@ client = OpenAI(api_key=env("OPENAI_API_KEY"))
 def chatgpt(
     messages: List[Dict[str, str]],
 ) -> Dict[str, str]:
+    """
+        This processor provides functionality to interact with OpenAI's ChatGPT API.
+
+        Functions:
+            chatgpt(messages: List[Dict[str, str]]) -> Dict[str, str]:
+                Sends a list of messages to OpenAI's ChatGPT API and returns the response.
+
+        Dependencies:
+            - Requires OpenAI API key to be set in the environment variables.
+            - Relies on the OpenaiSettings model for configuration (e.g., model, temperature).
+            - Logs interactions and results in the Log model.
+
+        Usage:
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "What is the weather today?"}
+            ]
+            response = chatgpt(messages)
+            print(response)
+    """
+
     settings = OpenaiSettings.objects.first()
     if not settings:
         logger.error("OpenAI settings not found.")
