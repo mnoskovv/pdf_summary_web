@@ -1,72 +1,124 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Upload Documents</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .document-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 8px; /* Уменьшены отступы между документами */
+            padding: 10px;
+        }
+        .document-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+        }
+        .document-status {
+            margin-left: 8px;
+        }
+        .document-summary {
+            background-color: #f8f9fa;
+            padding: 8px; /* Уменьшены отступы внутри саммари */
+            margin-top: 6px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .separator {
+            border-top: 1px solid #ddd;
+            margin: 6px 0; /* Уменьшены отступы между карточками */
+        }
+        .badge-custom {
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
 <body>
 <div class="container mt-5">
     <h1 class="mb-4">Upload PDF Documents</h1>
 
-    <div class="accordion mb-4" id="documentsAccordion">
+    <div class="list-group" id="documentsList">
         {% for doc in documents %}
-            <div class="card mb-2">
-                <div class="card-header d-flex justify-content-between align-items-center" id="heading{{ doc.id }}">
+            <div class="document-card" id="doc{{ doc.id }}">
+                <div class="document-header d-flex justify-content-between align-items-center">
                     <div>
                         <strong>#{{ forloop.revcounter }}</strong> — {{ doc.filename }}
-                        <span class="badge 
-                            {% if doc.status == 'done' %}bg-success
-                            {% elif doc.status == 'processing' %}bg-warning text-dark
-                            {% else %}bg-secondary{% endif %}">
+                        <span class="badge badge-custom {% if doc.status == 'done' %}bg-success
+                        {% elif doc.status == 'processing' %}bg-warning text-dark
+                        {% else %}bg-secondary{% endif %}">
                             {{ doc.get_status_display }}
                         </span>
                     </div>
-                    {% if doc.summary %}
-                        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#collapse{{ doc.id }}" aria-expanded="false"
-                                aria-controls="collapse{{ doc.id }}">
-                            Show Summary
-                        </button>
-                    {% endif %}
                 </div>
+
                 {% if doc.summary %}
-                    <div id="collapse{{ doc.id }}" class="collapse" aria-labelledby="heading{{ doc.id }}"
-                         data-bs-parent="#documentsAccordion">
-                        <div class="card-body">
-                            <div class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;">
-                                {{ doc.summary }}
-                            </div>
-                        </div>
+                    <div class="document-summary">
+                        <strong>Summary:</strong>
+                        <div>{{ doc.summary }}</div>
                     </div>
                 {% endif %}
             </div>
+            <div class="separator"></div>
         {% empty %}
             <p>No uploaded documents.</p>
         {% endfor %}
     </div>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" class="mt-4">
         {% csrf_token %}
-
-        {% if form.errors %}
-            <div class="alert alert-danger">
-                {{ form.errors.file.0 }}
-            </div>
-        {% endif %}
-
         <div class="mb-3">
             {{ form.file }}
         </div>
-
-        <button type="submit" class="btn btn-primary"
-                {% if any_processing %}disabled{% endif %}>
+        <button type="submit" class="btn btn-primary" {% if any_processing %}disabled{% endif %}>
             Upload PDF
         </button>
     </form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Polling to update the documents every 5 seconds
+    document.addEventListener("DOMContentLoaded", function () {
+        setInterval(function () {
+            fetch('/api/documents/')
+                .then(response => response.json())
+                .then(data => {
+                    let documentsList = document.getElementById("documentsList");
+
+                    // Clear the current list of documents
+                    documentsList.innerHTML = "";
+
+                    // Insert updated documents
+                    data.documents.forEach(function (doc) {
+                        let docHtml = `
+                            <div class="document-card mb-3" id="doc${doc.id}">
+                                <div class="document-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>#${doc.id}</strong> — ${doc.filename}
+                                        <span class="badge badge-custom ${doc.status === 'done' ? 'bg-success' : doc.status === 'processing' ? 'bg-warning text-dark' : 'bg-secondary'}">
+                                            ${doc.status_display}
+                                        </span>
+                                    </div>
+                                </div>
+                                ${doc.summary ? `
+                                    <div class="document-summary">
+                                        <strong>Summary:</strong>
+                                        <div>${doc.summary}</div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="separator"></div>
+                        `;
+                        documentsList.insertAdjacentHTML('beforeend', docHtml);
+                    });
+                })
+                .catch(error => console.log('Error fetching documents:', error));
+        }, 1000);
+    });
+</script>
 </body>
 </html>

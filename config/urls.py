@@ -20,11 +20,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
-from app.views import upload_document_view
+from app.views import upload_document_view, get_documents
 
 urlpatterns = [
+    # main urls
     path('', upload_document_view, name='upload'),
     path('admin/', admin.site.urls),
+
+    # api urls
+    path('api/documents/', get_documents, name='get_documents'),
 ]
 
 if settings.DEBUG:

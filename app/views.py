@@ -1,9 +1,26 @@
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 
 from app.models import Document
 from app.forms import DocumentUploadForm
 from app.tasks import process_pdf
 
+
+# api endpoint to get the latest 5 documents using polling approach
+def get_documents(request):
+    documents = Document.objects.order_by('-id')[:5]
+    docs_data = []
+
+    for doc in documents:
+        docs_data.append({
+            'id': doc.id,
+            'filename': doc.filename(),
+            'status': doc.status,
+            'status_display': doc.get_status_display(),
+            'summary': doc.summary,
+        })
+    
+    return JsonResponse({'documents': docs_data})
 
 def upload_document_view(request):
     documents = Document.objects.order_by('-id')[:5]
