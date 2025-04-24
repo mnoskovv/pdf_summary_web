@@ -66,5 +66,6 @@ coverage.xml
 .LSOverride
 
 # other
+/config/media/pdfs/
 .env
 .pdf
