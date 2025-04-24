@@ -14,3 +14,10 @@ class DocumentUploadForm(forms.ModelForm):
         if file.size > 10 * 1024 * 1024:  
             raise forms.ValidationError("File too large Max 10 mb.")
         return file
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['file'].widget.attrs.update({
+            'class': 'form-control',
+            'accept': 'application/pdf'
+        })

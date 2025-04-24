@@ -5,9 +5,15 @@
     <title>Успешно</title>
 </head>
 <body>
-    <h1>Upload Successful!</h1>
-    <p><strong>File:</strong> {{ document.file.name }}</p>
-    <h2>Extracted Text:</h2>
-    <pre>{{ extracted_text }}</pre>
+    {% if processing %}
+    <p>File "{{ document.filename }}" is being processed...</p>
+    <div class="loading-indicator">Processing...</div>
+    {% elif document.status == 'done' %}
+        <h3>File "{{ document.filename }}" processed successfully</h3>
+        <p>Summary:</p>
+        <p>{{ summary }}</p>
+    {% elif document.status == 'failed' %}
+        <p>Error occurred during file processing!</p>
+    {% endif %}
 </body>
 </html>

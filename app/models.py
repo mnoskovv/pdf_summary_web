@@ -50,16 +50,17 @@ class Log(BaseModel):
         return ""
 
 class Document(BaseModel):
-    STATUS_CHOICES = [
-        ('uploaded', 'Uploaded'),
-        ('processing', 'Processing'),
-        ('done', 'Done'),
-        ('failed', 'Failed'),
-    ]
+    class Status(models.TextChoices):
+        UPLOADED = "uploaded", "Uploaded"
+        PROCESSING = "processing", "Processing"
+        DONE = "done", "Done"
+        FAILED = "failed", "Failed"
 
     file = models.FileField(upload_to='pdfs/')
     summary = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='uploaded')
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.UPLOADED
+    )
 
     def filename(self):
         return self.file.name.split('/')[-1]

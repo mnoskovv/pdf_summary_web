@@ -20,11 +20,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
-from app.views import upload_document_view, upload_success_view
+from app.views import upload_document_view
 
 urlpatterns = [
     path('', upload_document_view, name='upload'),
-    path('success/', upload_success_view, name='upload_success'),
     path('admin/', admin.site.urls),
 ]
 
