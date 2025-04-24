@@ -5,10 +5,10 @@ This project is a simple document processing app designed to extract summaries f
 ## Installation
 
 ### Requirements
+- Computer 😁
 - Python 3.9+
 - Docker
 - Docker Compose
-- Postgres
 
 ### Setup
 
