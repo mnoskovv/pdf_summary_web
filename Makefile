@@ -1,3 +1,4 @@
+# this Makefile is used to simplify runing docker-compose commands
 include .env
 
 ifeq (shell, $(firstword $(MAKECMDGOALS)))

@@ -17,7 +17,7 @@ def create_superuser_and_settings(apps, schema_editor):
         model="gpt-3.5-turbo",
         temperature=0.5,
         max_retries=3,
-        summary_prompt="prompt:"
+        summary_prompt="Create a summary of the extracted content of PDF file. The summary should include information that explains what document it is, and summarized info."
     )
 
 class Migration(migrations.Migration):
