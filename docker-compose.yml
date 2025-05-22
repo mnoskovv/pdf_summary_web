@@ -1,6 +1,7 @@
 volumes:
   data:
   rabbitmq:
+  grafana-storage:
 
 services:
   web:
@@ -40,3 +41,19 @@ services:
     depends_on:
       - rabbitmq
     restart: on-failure
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - prometheus

@@ -1,8 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django_prometheus.models import ExportModelOperationsMixin
+
 from app.utils.models.BaseModel import BaseModel
 
-class OpenaiSettings(BaseModel):
+class OpenaiSettings(ExportModelOperationsMixin('openai_settings'), BaseModel):
     model = models.CharField(max_length=64)
     temperature = models.DecimalField(
         max_digits=2,
@@ -49,7 +51,7 @@ class Log(BaseModel):
     def title(self):
         return ""
 
-class Document(BaseModel):
+class Document(ExportModelOperationsMixin('document'), BaseModel):
     class Status(models.TextChoices):
         UPLOADED = "uploaded", "Uploaded"
         PROCESSING = "processing", "Processing"

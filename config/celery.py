@@ -23,3 +23,11 @@ celery_app.conf.broker_transport_options = {"visibility_timeout": 5400}
 @celery_app.task(bind=True)
 def debug_task(self):
     print(f"Request: {self.request!r}")
+
+import threading
+from prometheus_client import start_http_server
+
+def start_metrics_server():
+    start_http_server(8001)
+
+threading.Thread(target=start_metrics_server, daemon=True).start()

@@ -18,17 +18,20 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
-from app.views import upload_document_view, get_documents
+from app.views import upload_document_view, get_documents, health_check_view
 
 urlpatterns = [
     # main urls
     path('', upload_document_view, name='upload'),
     path('admin/', admin.site.urls),
+    path('health/', health_check_view, name='health'),
 
     # api urls
     path('api/documents/', get_documents, name='get_documents'),
+    # metrics
+    path('', include('django_prometheus.urls')),
 ]
 
 if settings.DEBUG:

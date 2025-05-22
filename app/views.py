@@ -1,10 +1,13 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from prometheus_client import Counter
 
 from app.models import Document
 from app.forms import DocumentUploadForm
 from app.tasks import process_pdf
 
+# Простая метрика: сколько раз вызывали health check
+health_check_counter = Counter('health_check_requests_total', 'Total health check requests')
 
 # api endpoint to get the latest 5 documents using polling approach
 def get_documents(request):
@@ -42,3 +45,7 @@ def upload_document_view(request):
         'documents': documents,
         'is_processing': is_processing,
     })
+
+def health_check_view(request):
+    health_check_counter.inc()
+    return JsonResponse({'status': 'ok'})
