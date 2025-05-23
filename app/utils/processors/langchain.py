@@ -1,0 +1,68 @@
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains.summarize import load_summarize_chain
+from langchain.chains import LLMChain
+from langchain.docstore.document import Document as LangDocument
+import os
+
+from app.models import OpenaiSettings
+
+def get_summary_chain():
+    """
+    Creates a LangChain summarization chain using custom prompts from the database.
+
+    This function:
+    - Loads the OpenAI model and prompt settings from the `OpenaiSettings` model.
+    - Initializes a ChatOpenAI instance with the specified model and temperature.
+    - Defines two custom prompts: one for summarizing individual chunks (map step),
+      and another for combining the partial summaries into a final one (reduce step).
+    - Returns a ready-to-use LangChain summarization chain using the "map_reduce" method.
+
+    Returns:
+        A LangChain summarize chain object configured for multi-step summarization.
+    Raises:
+        ValueError: If OpenAI settings are not found in the database.
+    """
+
+    # Get OpenAI API configuration from the database
+    settings = OpenaiSettings.objects.first()
+    if not settings:
+        raise ValueError("OpenAI settings not found")
+
+    # Initialize the ChatOpenAI model with your API key and settings
+    llm = ChatOpenAI(
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        model=settings.model,
+        temperature=float(settings.temperature),
+    )
+
+    # Prompt used to summarize individual chunks of the document
+    map_prompt = PromptTemplate(
+        input_variables=["text"],
+        template=(
+            "Read the following excerpt from a document and write a concise summary of its main idea.\n\n"
+            "Excerpt:\n{text}\n\n"
+            "Summary:"
+        )
+    )
+
+    # Prompt used to combine all chunk summaries into a single final summary
+    combine_prompt = PromptTemplate(
+        input_variables=["text"],
+        template=(
+            "You are given a list of summaries of different sections from a long document.\n"
+            "Using these summaries, write a coherent and concise overall summary of the full document.\n\n"
+            "Section summaries:\n{text}\n\n"
+            "Final summary:"
+        )
+    )
+
+    # Create a summarize chain using the map-reduce strategy
+    chain = load_summarize_chain(
+        llm,
+        chain_type="map_reduce",
+        map_prompt=map_prompt,
+        combine_prompt=combine_prompt,
+    )
+
+    return chain

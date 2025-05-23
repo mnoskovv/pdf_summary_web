@@ -1,56 +1,78 @@
 from celery import shared_task
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.docstore.document import Document as LangDocument
 
-from .models import Document, OpenaiSettings
-from .utils.processors.openai import chatgpt
+from .models import Document
 from .utils.processors.pdf import extract_text_from_pdf
+from .utils.processors.langchain import get_summary_chain  # <- используем новую функцию
 
 def update_document_status(document, status):
-    """Utility function to update the document status and save it."""
+    """
+    Utility function to update a document's status in the database.
+
+    Args:
+        document (Document): The Document model instance.
+        status (str): The new status to set (e.g., PROCESSING, DONE, FAILED).
+    """
     document.status = status
     document.save()
 
 @shared_task
 def process_pdf(document_id):
     """
-        This module defines Celery tasks for processing PDF documents.
+    Celery task for processing and summarizing the contents of a PDF document.
 
-        Dependencies:
-            - Relies on the Document model for managing document data.
-            - Uses the OpenaiSettings model for configuration (e.g., summary prompt).
-            - Utilizes the extract_text_from_pdf function to extract text from PDF files.
-            - Interacts with OpenAI's ChatGPT API via the chatgpt function.
+    This task performs the following steps:
+    1. Loads the document by ID.
+    2. Sets its status to "PROCESSING".
+    3. Extracts text from the associated PDF file.
+    4. Splits the text into smaller chunks for summarization.
+    5. Creates LangChain document objects for each chunk.
+    6. Loads a custom LangChain summarization chain (using map-reduce).
+    7. Generates a final summary from all chunks.
+    8. Saves the summary back to the document and updates the status to "DONE".
+    9. In case of an error, sets the status to "FAILED".
 
-        Usage:
-            - Call the `process_pdf` task with a document ID to process the document asynchronously.
+    Args:
+        document_id (int): The ID of the document to process.
+
+    Raises:
+        Exception: Any exception during processing will be re-raised after marking the document as FAILED.
     """
+
+    # Retrieve the document object by ID
     document = Document.objects.get(id=document_id)
 
     try:
-        settings = OpenaiSettings.objects.first()
+        # Mark the document as "processing"
         update_document_status(document, Document.Status.PROCESSING)
 
-        pdf_path = document.file.path
-        extracted_text = extract_text_from_pdf(pdf_path)
+        # Extract text from the uploaded PDF file
+        text = extract_text_from_pdf(document.file.path)
+        if not text:
+            raise ValueError("No text extracted from the PDF")
 
-        if not extracted_text:
-            update_document_status(document, Document.Status.FAILED)
-            raise ValueError("No text extracted from PDF")
+        # Split text into smaller overlapping chunks for better summarization
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+        )
+        chunks = text_splitter.split_text(text)
 
-        messages = [
-            {
-                "role": "user",
-                "content": f"{settings.summary_prompt}: {extracted_text}"
-            }
-        ]
-        response = chatgpt(messages)
+        # Wrap each chunk as a LangChain document
+        docs = [LangDocument(page_content=chunk) for chunk in chunks]
 
-        if not response or response.get("status") != "Success":
-            update_document_status(document, Document.Status.FAILED)
-            return
+        # Load the custom summarization chain with map/reduce prompts
+        chain = get_summary_chain()
 
-        document.summary = response.get("message", "Summary not found")
+        # Run the chain on the document chunks to produce a summary
+        summary = chain.run(docs)
+
+        # Save the summary and mark the document as "done"
+        document.summary = summary
         update_document_status(document, Document.Status.DONE)
 
     except Exception as e:
+        # If something goes wrong, mark the document as "failed"
         update_document_status(document, Document.Status.FAILED)
         raise e

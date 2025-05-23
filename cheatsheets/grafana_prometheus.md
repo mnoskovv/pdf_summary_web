@@ -102,3 +102,14 @@ def my_view(request):
 
 ### Зачем нужна Grafana?
 Для визуализации данных из Prometheus в виде графиков, панелей и алертов.
+
+
+<!-- полезные ссылки -->
+# выполнить квери на метрику в самом прометеусе
+http://localhost:9090/query
+
+# глянуть мои метрики
+http://localhost:8000/metrics
+
+# grafana
+http://localhost:3000/dashboard/
