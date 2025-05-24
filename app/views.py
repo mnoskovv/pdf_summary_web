@@ -4,10 +4,10 @@ from django.http import JsonResponse
 from prometheus_client import Counter
 from django.views.decorators.csrf import csrf_exempt
 
-from app.models import Document
+from app.models import Document, Message
 from app.forms import DocumentUploadForm
 from app.tasks import process_pdf
-from app.utils.processors.langchain import answer_question_with_rag
+from app.utils.processors.langchain import answer_question_with_rag_and_history
 
 # Простая метрика: сколько раз вызывали health check
 health_check_counter = Counter('health_check_requests_total', 'Total health check requests')
@@ -53,9 +53,12 @@ def upload_document_view(request):
 
 def document_chat_view(request, doc_id):
     document = get_object_or_404(Document, id=doc_id)
+    # Получаем все сообщения по документу, отсортированные по времени
+    messages = Message.objects.filter(document_id=doc_id).order_by("created_at")
 
     return render(request, 'document_chat.html', {
         'document': document,
+        'messages': messages,
     })
 
 
@@ -69,7 +72,9 @@ def ask_question(request):
             if not question or not document_id:
                 return JsonResponse({"error": "Missing question or document_id"}, status=400)
 
-            answer = answer_question_with_rag(document_id, question)
+            # Используем функцию с поддержкой истории сообщений
+            answer = answer_question_with_rag_and_history(document_id, question)
+
             return JsonResponse({"answer": answer})
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)

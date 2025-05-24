@@ -73,3 +73,13 @@ class Document(ExportModelOperationsMixin('document'), BaseModel):
 class DocumentChunk(BaseModel):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="chunks")
     text = models.TextField()
+
+
+class Message(ExportModelOperationsMixin('messsage'), BaseModel):
+    class Role(models.TextChoices):
+        USER = "user"
+        ASSISTANT = "assistant"
+
+    document = models.ForeignKey(Document, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=Role.choices)
+    content = models.TextField()

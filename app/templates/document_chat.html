@@ -22,7 +22,11 @@
     {% endif %}
 
     <div id="chatBox" style="height: 300px; border: 1px solid #ddd; padding: 10px; overflow-y: auto; margin-bottom: 15px;">
-        <!-- Chat messages will go here -->
+        {% for message in messages %}
+            <div style="margin-bottom: 8px;">
+                <strong>{{ message.role|title }}:</strong> {{ message.content }}
+            </div>
+        {% endfor %}
     </div>
 
     <form id="chatForm">
