@@ -1,9 +1,11 @@
+import os
+from pathlib import Path
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import LLMChain
-from langchain.docstore.document import Document as LangDocument
-import os
+from langchain.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
+from langchain.chains.question_answering import load_qa_chain
 
 from app.models import OpenaiSettings
 
@@ -66,3 +68,51 @@ def get_summary_chain():
     )
 
     return chain
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+FAISS_DIR = BASE_DIR / "faiss_indices"
+FAISS_DIR.mkdir(parents=True, exist_ok=True)
+
+def create_embeddings_and_store(document, chunk_objs):
+    texts = [chunk.text for chunk in chunk_objs]
+    embeddings_model = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+    vectorstore = FAISS.from_texts(texts, embeddings_model)
+
+    faiss_index_path = FAISS_DIR / f"faiss_index_doc_{document.id}"
+    vectorstore.save_local(str(faiss_index_path))
+
+
+def answer_question_with_rag(document_id, question):
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    settings = OpenaiSettings.objects.first()
+    if not settings:
+        raise ValueError("OpenAI settings not found")
+
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY not set in environment.")
+
+    embeddings_model = OpenAIEmbeddings(openai_api_key=api_key)
+
+    faiss_index_path = FAISS_DIR / f"faiss_index_doc_{document_id}"
+    if not faiss_index_path.exists():
+        raise FileNotFoundError(f"FAISS index not found at {faiss_index_path}")
+
+    vectorstore = FAISS.load_local(
+        str(faiss_index_path),
+        embeddings_model,
+        allow_dangerous_deserialization=True
+    )
+
+    similar_docs = vectorstore.similarity_search(question, k=4)
+
+    llm = ChatOpenAI(
+        temperature=0,
+        model=settings.model,
+        openai_api_key=api_key
+    )
+    chain = load_qa_chain(llm, chain_type="stuff")
+
+    answer = chain.run(input_documents=similar_docs, question=question)
+    return answer

@@ -20,16 +20,22 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
-from app.views import upload_document_view, get_documents, health_check_view
+from app.views import upload_document_view, \
+                    get_documents, \
+                    document_chat_view, \
+                    health_check_view, \
+                    ask_question
 
 urlpatterns = [
     # main urls
     path('', upload_document_view, name='upload'),
+    path('documents/<int:doc_id>/chat/', document_chat_view, name='document_chat'),
     path('admin/', admin.site.urls),
     path('health/', health_check_view, name='health'),
 
     # api urls
     path('api/documents/', get_documents, name='get_documents'),
+    path("api/ask-question/", ask_question, name="ask-question"),
     # metrics
     path('', include('django_prometheus.urls')),
 ]

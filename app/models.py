@@ -69,3 +69,7 @@ class Document(ExportModelOperationsMixin('document'), BaseModel):
 
     def __str__(self):
         return f"{self.filename()} - {self.status}"
+
+class DocumentChunk(BaseModel):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="chunks")
+    text = models.TextField()

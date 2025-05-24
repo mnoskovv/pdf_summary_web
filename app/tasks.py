@@ -2,9 +2,9 @@ from celery import shared_task
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document as LangDocument
 
-from .models import Document
+from .models import Document, DocumentChunk
 from .utils.processors.pdf import extract_text_from_pdf
-from .utils.processors.langchain import get_summary_chain  # <- используем новую функцию
+from .utils.processors.langchain import get_summary_chain, create_embeddings_and_store
 
 def update_document_status(document, status):
     """
@@ -42,37 +42,43 @@ def process_pdf(document_id):
 
     # Retrieve the document object by ID
     document = Document.objects.get(id=document_id)
-
     try:
-        # Mark the document as "processing"
         update_document_status(document, Document.Status.PROCESSING)
 
-        # Extract text from the uploaded PDF file
         text = extract_text_from_pdf(document.file.path)
         if not text:
             raise ValueError("No text extracted from the PDF")
 
-        # Split text into smaller overlapping chunks for better summarization
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-        )
+        # Разбиваем текст на чанки ОДИН раз
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_text(text)
 
-        # Wrap each chunk as a LangChain document
-        docs = [LangDocument(page_content=chunk) for chunk in chunks]
+        # Удаляем старые чанки (если есть)
+        DocumentChunk.objects.filter(document=document).delete()
 
-        # Load the custom summarization chain with map/reduce prompts
+        # Сохраняем чанки в БД
+        chunk_objs = [DocumentChunk(document=document, text=chunk) for chunk in chunks]
+        DocumentChunk.objects.bulk_create(chunk_objs)
+
+        # Загружаем чанки из БД (чтобы получить id и т.п.)
+        chunk_objs = list(DocumentChunk.objects.filter(document=document))
+
+        # Создаем LangChain документы
+        docs = [LangDocument(page_content=chunk.text) for chunk in chunk_objs]
+
+        # Суммаризация
         chain = get_summary_chain()
-
-        # Run the chain on the document chunks to produce a summary
         summary = chain.run(docs)
 
-        # Save the summary and mark the document as "done"
+        # Сохраняем summary
         document.summary = summary
+        document.save()
+
+        # Эмбеддинги для RAG (параллельно)
+        create_embeddings_and_store(document, chunk_objs)
+
         update_document_status(document, Document.Status.DONE)
 
     except Exception as e:
-        # If something goes wrong, mark the document as "failed"
         update_document_status(document, Document.Status.FAILED)
         raise e

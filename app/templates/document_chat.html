@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Chat for {{ document.filename }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body>
+<div class="container mt-5" data-document-id="{{ document.id }}">
+    <a href="{% url 'upload' %}" class="btn btn-secondary mb-3">
+        <i class="bi bi-arrow-left"></i> Back to documents
+    </a>
+
+    <h2>Chat about document: {{ document.filename }}</h2>
+
+    {% if document.summary %}
+    <div class="alert alert-secondary">
+        <strong>Summary:</strong>
+        <p>{{ document.summary }}</p>
+    </div>
+    {% endif %}
+
+    <div id="chatBox" style="height: 300px; border: 1px solid #ddd; padding: 10px; overflow-y: auto; margin-bottom: 15px;">
+        <!-- Chat messages will go here -->
+    </div>
+
+    <form id="chatForm">
+        <div class="input-group">
+            <input type="text" id="chatInput" class="form-control" placeholder="Type your message..." autocomplete="off" />
+            <button type="submit" class="btn btn-primary">Send</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatBox = document.getElementById('chatBox');
+    const container = document.querySelector('.container');
+    const documentId = container.getAttribute('data-document-id');
+
+    function appendMessage(sender, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+        msgDiv.style.marginBottom = '8px';
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    chatForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const question = chatInput.value.trim();
+        if (!question) return;
+
+        appendMessage("You", question);
+        chatInput.value = '';
+
+        try {
+            const response = await fetch("{% url 'ask-question' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({
+                    question: question,
+                    document_id: documentId
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.answer) {
+                appendMessage("AI", data.answer);
+            } else {
+                appendMessage("Error", "Failed to get answer from server.");
+            }
+        } catch (error) {
+            console.error(error);
+            appendMessage("Error", "An error occurred.");
+        }
+    });
+</script>
+</body>
+</html>

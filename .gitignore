@@ -66,6 +66,7 @@ coverage.xml
 .LSOverride
 
 # other
+app/faiss_indices
 /config/media/pdfs/
 .env
 .pdf

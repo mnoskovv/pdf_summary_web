@@ -1,10 +1,13 @@
-from django.shortcuts import render, redirect
+import json
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from prometheus_client import Counter
+from django.views.decorators.csrf import csrf_exempt
 
 from app.models import Document
 from app.forms import DocumentUploadForm
 from app.tasks import process_pdf
+from app.utils.processors.langchain import answer_question_with_rag
 
 # Простая метрика: сколько раз вызывали health check
 health_check_counter = Counter('health_check_requests_total', 'Total health check requests')
@@ -24,6 +27,7 @@ def get_documents(request):
         })
     
     return JsonResponse({'documents': docs_data})
+
 
 def upload_document_view(request):
     documents = Document.objects.order_by('-id')[:5]
@@ -45,6 +49,31 @@ def upload_document_view(request):
         'documents': documents,
         'is_processing': is_processing,
     })
+
+
+def document_chat_view(request, doc_id):
+    document = get_object_or_404(Document, id=doc_id)
+
+    return render(request, 'document_chat.html', {
+        'document': document,
+    })
+
+
+@csrf_exempt
+def ask_question(request):
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            question = body.get("question")
+            document_id = body.get("document_id")
+            if not question or not document_id:
+                return JsonResponse({"error": "Missing question or document_id"}, status=400)
+
+            answer = answer_question_with_rag(document_id, question)
+            return JsonResponse({"answer": answer})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
 
 def health_check_view(request):
     health_check_counter.inc()
