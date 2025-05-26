@@ -23,6 +23,11 @@ class LogAdmin(admin.ModelAdmin):
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ('filename', 'status')
     list_filter = ('status',)
     search_fields = ('file',)
+
+    @admin.display(description='Name')
+    def display_name(self, obj):
+        if obj.variant == obj.Variant.YOUTUBE:
+            return obj.title or "Без названия видео"
+        return obj.filename()

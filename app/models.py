@@ -51,6 +51,7 @@ class Log(BaseModel):
     def title(self):
         return ""
 
+
 class Document(ExportModelOperationsMixin('document'), BaseModel):
     class Status(models.TextChoices):
         UPLOADED = "uploaded", "Uploaded"
@@ -58,17 +59,28 @@ class Document(ExportModelOperationsMixin('document'), BaseModel):
         DONE = "done", "Done"
         FAILED = "failed", "Failed"
 
-    file = models.FileField(upload_to='pdfs/')
+    class Variant(models.TextChoices):
+        DOCUMENT = "document", "Document"
+        YOUTUBE = "youtube", "YouTube Video"
+
+    file = models.FileField(upload_to='pdfs/', blank=True, null=True)
+    title = models.CharField(max_length=255, blank=True, null=True)
+    variant = models.CharField(max_length=20, choices=Variant.choices, default=Variant.DOCUMENT)
+    url = models.URLField(blank=True, null=True)  # только для YouTube
+
     summary = models.TextField(blank=True, null=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.UPLOADED
     )
 
     def filename(self):
-        return self.file.name.split('/')[-1]
+        return self.file.name.split('/')[-1] if self.file else "No file"
 
     def __str__(self):
-        return f"{self.filename()} - {self.status}"
+        if self.variant == self.Variant.YOUTUBE:
+            return self.title or "Без названия видео"
+        return self.filename()
+
 
 class DocumentChunk(BaseModel):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="chunks")
