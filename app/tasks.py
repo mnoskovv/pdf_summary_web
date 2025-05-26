@@ -4,14 +4,10 @@ from langchain.docstore.document import Document as LangDocument
 
 from .models import Document, DocumentChunk
 from .utils.processors.pdf import extract_text_from_pdf
-from .utils.processors.langchain import get_summary_chain, create_embeddings_and_store, get_title_generation_chain
+from .utils.processors.langchain import get_summary_chain, \
+                                    create_embeddings_and_store, \
+                                    get_title_generation_chain 
 from .utils.processors.youtube import extract_youtube_video_data
-from pytube import YouTube
-
-
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.llms import OpenAI
 
 def update_document_status(document, status):
     """
@@ -25,26 +21,11 @@ def update_document_status(document, status):
     document.save()
 
 
-def get_youtube_video_title(url: str) -> str:
-    """
-    Получает название видео по ссылке на YouTube.
-    Возвращает строку с названием или сообщение об ошибке.
-    """
-    try:
-        yt = YouTube(url)
-        return yt.title
-    except Exception as e:
-        return f"Ошибка при получении названия: {e}"
-
-
 def extract_text_by_type(document):
     if document.variant == Document.Variant.DOCUMENT:
         return extract_text_from_pdf(document.file.path)
     elif document.variant == Document.Variant.YOUTUBE:
         text = extract_youtube_video_data(document.url)
-        title = get_youtube_video_title(document.url)
-        document.title = title if title else "Видео YouTube"
-        document.save()
         return text
     else:
         return ""
@@ -93,9 +74,7 @@ def process_document(document_id):
         if document.variant == Document.Variant.YOUTUBE:
             chain = get_title_generation_chain()
             generated_title = chain.run(summary_text=document.summary)
-            document.title = generated_title
-            print(f"Generated title: {generated_title}")
-
+            document.title = generated_title.replace('"', '').strip()
             document.save()
         update_document_status(document, Document.Status.DONE)
 

@@ -7,8 +7,11 @@ from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain.chains import ConversationalRetrievalChain, LLMChain
 
-
 from app.models import OpenaiSettings, Message
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+FAISS_DIR = BASE_DIR / "faiss_indices"
+FAISS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_title_generation_chain():
@@ -111,10 +114,6 @@ def get_summary_chain():
 
     return chain
 
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-FAISS_DIR = BASE_DIR / "faiss_indices"
-FAISS_DIR.mkdir(parents=True, exist_ok=True)
 
 def create_embeddings_and_store(document, chunk_objs):
     texts = [chunk.text for chunk in chunk_objs]

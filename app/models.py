@@ -77,7 +77,9 @@ class Document(ExportModelOperationsMixin('document'), BaseModel):
         return self.file.name.split('/')[-1] if self.file else "No file"
 
     def __str__(self):
-        return f"{self.title or self.filename()} - {self.status}"
+        if self.variant == self.Variant.YOUTUBE:
+            return self.title or "Без названия видео"
+        return self.filename()
 
 
 class DocumentChunk(BaseModel):

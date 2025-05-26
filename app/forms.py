@@ -1,12 +1,24 @@
 from django import forms
 from .models import Document
-from django import forms
-from .models import Document
 
 class DocumentUploadForm(forms.ModelForm):
     class Meta:
         model = Document
-        fields = ['file', 'title', 'url']  # variant — программно
+        fields = ['file', 'title', 'url']
+        widgets = {
+            'file': forms.ClearableFileInput(attrs={
+                'accept': 'application/pdf',
+                'class': 'form-control',
+            }),
+            'url': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Paste YouTube link here',
+            }),
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Optional title',
+            }),
+        }
 
     def clean(self):
         cleaned_data = super().clean()
@@ -19,7 +31,7 @@ class DocumentUploadForm(forms.ModelForm):
         if file:
             variant = Document.Variant.DOCUMENT
 
-            if not file.name.endswith('.pdf'):
+            if not file.name.lower().endswith('.pdf'):
                 self.add_error('file', "Only PDF files allowed.")
             if file.size > 10 * 1024 * 1024:
                 self.add_error('file', "File too large. Max 10 MB.")
@@ -41,7 +53,7 @@ class DocumentUploadForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.variant = self.cleaned_data.get('variant')  # <- вот тут ключ
+        instance.variant = self.cleaned_data.get('variant')
         if commit:
             instance.save()
         return instance
