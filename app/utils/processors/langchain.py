@@ -5,9 +5,51 @@ from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
-from langchain.chains import ConversationalRetrievalChain
+from langchain.chains import ConversationalRetrievalChain, LLMChain
+
 
 from app.models import OpenaiSettings, Message
+
+
+def get_title_generation_chain():
+    """
+    Создаёт LangChain цепочку для генерации короткого заголовка видео из текста саммари.
+
+    Функция:
+    - Получает настройки OpenAI из базы (модель, температуру).
+    - Инициализирует ChatOpenAI с этими настройками.
+    - Формирует промпт, который принимает summary и просит сгенерировать короткий заголовок.
+    - Возвращает готовую цепочку LLMChain, готовую к вызову.
+
+    Возвращает:
+        LLMChain для генерации заголовка.
+    Исключения:
+        ValueError — если настройки OpenAI не найдены.
+    """
+
+    settings = OpenaiSettings.objects.first()
+    if not settings:
+        raise ValueError("OpenAI settings not found")
+
+    llm = ChatOpenAI(
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        model=settings.model,
+        temperature=float(settings.temperature),
+    )
+
+    prompt = PromptTemplate(
+        input_variables=["summary_text"],
+        template=(
+            "На основе следующего краткого описания видео (саммари), "
+            "сгенерируй короткое, ёмкое и привлекательное название видео на русском языке.\n\n"
+            "Саммари:\n{summary_text}\n\n"
+            "Название (не длиннее 60 символов):"
+        )
+    )
+
+    chain = LLMChain(llm=llm, prompt=prompt)
+    return chain
+
 
 def get_summary_chain():
     """
@@ -38,24 +80,24 @@ def get_summary_chain():
         temperature=float(settings.temperature),
     )
 
-    # Prompt used to summarize individual chunks of the document
+    # Промт для суммирования отдельных частей документа
     map_prompt = PromptTemplate(
         input_variables=["text"],
         template=(
-            "Read the following excerpt from a document and write a concise summary of its main idea.\n\n"
-            "Excerpt:\n{text}\n\n"
-            "Summary:"
+            "Прочитай следующий фрагмент документа и напиши краткое резюме его основной идеи.\n\n"
+            "Фрагмент:\n{text}\n\n"
+            "Резюме:"
         )
     )
 
-    # Prompt used to combine all chunk summaries into a single final summary
+    # Промт для объединения всех частичных резюме в итоговое
     combine_prompt = PromptTemplate(
         input_variables=["text"],
         template=(
-            "You are given a list of summaries of different sections from a long document.\n"
-            "Using these summaries, write a coherent and concise overall summary of the full document.\n\n"
-            "Section summaries:\n{text}\n\n"
-            "Final summary:"
+            "Тебе дана серия резюме различных частей длинного документа.\n"
+            "Используя эти резюме, напиши связное и краткое итоговое резюме всего документа.\n\n"
+            "Резюме частей:\n{text}\n\n"
+            "Итоговое резюме:"
         )
     )
 

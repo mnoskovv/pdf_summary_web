@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from app.models import Document, Message
 from app.forms import DocumentUploadForm
-from app.tasks import process_pdf
+from app.tasks import process_document
 from app.utils.processors.langchain import answer_question_with_rag_and_history
 
 # Простая метрика: сколько раз вызывали health check
@@ -20,7 +20,10 @@ def get_documents(request):
     for doc in documents:
         docs_data.append({
             'id': doc.id,
-            'filename': doc.filename(),
+            'filename': doc.filename() if doc.variant == Document.Variant.DOCUMENT else None,
+            'variant': doc.variant,
+            'title': doc.title,
+            'url': doc.url,
             'status': doc.status,
             'status_display': doc.get_status_display(),
             'summary': doc.summary,
@@ -37,10 +40,10 @@ def upload_document_view(request):
         form = DocumentUploadForm(request.POST, request.FILES)
         if form.is_valid() and not is_processing:
             document = form.save()
-
+        
             # run background task to process the PDF
-            process_pdf.delay(document.id)
-            return redirect('upload')
+            process_document.delay(document.id)
+        return redirect('upload')
     else:
         form = DocumentUploadForm()
 

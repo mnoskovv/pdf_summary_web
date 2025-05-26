@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Upload Documents</title>
+    <title>Upload or Summarize</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 
@@ -40,14 +40,46 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h1 class="mb-4">Upload PDF Documents</h1>
+    <h1 class="mb-4">Summarize Content</h1>
 
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3" id="uploadTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pdf-tab" data-bs-toggle="tab" data-bs-target="#pdf" type="button" role="tab">Upload PDF</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="youtube-tab" data-bs-toggle="tab" data-bs-target="#youtube" type="button" role="tab">YouTube Link</button>
+        </li>
+    </ul>
+
+    <!-- Upload Form -->
+    <form method="post" enctype="multipart/form-data" class="mb-4">
+        {% csrf_token %}
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="pdf" role="tabpanel">
+                <div class="mb-3">
+                    {{ form.file }}
+                </div>
+            </div>
+            <div class="tab-pane fade" id="youtube" role="tabpanel">
+                <div class="mb-3">
+                    <input type="url" name="url" class="form-control" placeholder="Paste YouTube link here">
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" {% if is_processing %}disabled{% endif %}>
+            Summarize
+        </button>
+    </form>
+
+    <!-- Recent summaries -->
+    <h3 class="mb-3">Latest Summaries</h3>
     <div class="list-group" id="documentsList">
         {% for doc in documents %}
             <div class="document-card" id="doc{{ doc.id }}">
                 <div class="document-header d-flex justify-content-between align-items-center">
                     <div>
-                        <strong>#{{ forloop.revcounter }}</strong> — {{ doc.filename }}
+                        <strong>#{{ forloop.revcounter }}</strong> — {{ doc.filename|default:doc.title }}
                         <span class="badge badge-custom {% if doc.status == 'done' %}bg-success
                             {% elif doc.status == 'processing' %}bg-warning text-dark
                             {% else %}bg-secondary{% endif %}">
@@ -70,72 +102,74 @@
             </div>
             <div class="separator"></div>
         {% empty %}
-            <p>No uploaded documents.</p>
+            <p>No uploaded documents or videos.</p>
         {% endfor %}
     </div>
-
-    <form method="post" enctype="multipart/form-data" class="mt-4">
-        {% csrf_token %}
-        <div class="mb-3">
-            {{ form.file }}
-        </div>
-        <button type="submit" class="btn btn-primary" {% if is_processing %}disabled{% endif %}>
-            Upload PDF
-        </button>
-    </form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // Обновление списка документов каждую секунду (polling)
+    // Polling for updated summaries
     document.addEventListener("DOMContentLoaded", function () {
-        setInterval(function () {
-            fetch('/api/documents/')
-                .then(response => response.json())
-                .then(data => {
-                    let documentsList = document.getElementById("documentsList");
+    setInterval(function () {
+        fetch('/api/documents/')
+            .then(response => response.json())
+            .then(data => {
+                let documentsList = document.getElementById("documentsList");
+                documentsList.innerHTML = "";
 
-                    // Очистить текущий список документов
-                    documentsList.innerHTML = "";
+                // Если хочешь обратный счётчик как в Django:
+                let total = data.documents.length;
 
-                    // Добавить документы из ответа API
-                    data.documents.forEach(function (doc) {
-                        let chatIconHtml = '';
-                        if (doc.status === 'done') {
-                            chatIconHtml = `
-                                <a href="/documents/${doc.id}/chat/" class="btn btn-outline-primary btn-sm" title="Chat about this document">
-                                    <i class="bi bi-chat-dots"></i>
-                                </a>
-                            `;
-                        }
-
-                        let docHtml = `
-                            <div class="document-card mb-3" id="doc${doc.id}">
-                                <div class="document-header d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>#${doc.id}</strong> — ${doc.filename}
-                                        <span class="badge badge-custom ${doc.status === 'done' ? 'bg-success' : doc.status === 'processing' ? 'bg-warning text-dark' : 'bg-secondary'}">
-                                            ${doc.status_display}
-                                        </span>
-                                    </div>
-                                    ${chatIconHtml}
-                                </div>
-                                ${doc.summary ? `
-                                    <div class="document-summary">
-                                        <strong>Summary:</strong>
-                                        <div>${doc.summary}</div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <div class="separator"></div>
+                data.documents.forEach(function (doc, index) {
+                    let chatIconHtml = '';
+                    if (doc.status === 'done') {
+                        chatIconHtml = `
+                            <a href="/documents/${doc.id}/chat/" class="btn btn-outline-primary btn-sm" title="Chat about this document">
+                                <i class="bi bi-chat-dots"></i>
+                            </a>
                         `;
-                        documentsList.insertAdjacentHTML('beforeend', docHtml);
-                    });
-                })
-                .catch(error => console.error('Error fetching documents:', error));
-        }, 1000);
-    });
+                    }
+
+                    let title = doc.title || doc.filename || 'Untitled';
+
+                    // Обратный счётчик как в forloop.revcounter
+                    let displayNumber = total - index;
+
+                    // Подставляем статус (если нет status_display — можно сделать fallback)
+                    let statusDisplay = doc.status_display || doc.status;
+
+                    let badgeClass = 'bg-secondary';
+                    if (doc.status === 'done') badgeClass = 'bg-success';
+                    else if (doc.status === 'processing') badgeClass = 'bg-warning text-dark';
+
+                    let docHtml = `
+                        <div class="document-card mb-3" id="doc${doc.id}">
+                            <div class="document-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>#${displayNumber}</strong> — ${title}
+                                    <span class="badge badge-custom ${badgeClass}">
+                                        ${statusDisplay}
+                                    </span>
+                                </div>
+                                ${chatIconHtml}
+                            </div>
+                            ${doc.summary ? `
+                                <div class="document-summary">
+                                    <strong>Summary:</strong>
+                                    <div>${doc.summary}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="separator"></div>
+                    `;
+                    documentsList.insertAdjacentHTML('beforeend', docHtml);
+                });
+            })
+            .catch(error => console.error('Error fetching documents:', error));
+    }, 1000);
+});
 </script>
 </body>
 </html>

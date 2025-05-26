@@ -4,7 +4,14 @@ from langchain.docstore.document import Document as LangDocument
 
 from .models import Document, DocumentChunk
 from .utils.processors.pdf import extract_text_from_pdf
-from .utils.processors.langchain import get_summary_chain, create_embeddings_and_store
+from .utils.processors.langchain import get_summary_chain, create_embeddings_and_store, get_title_generation_chain
+from .utils.processors.youtube import extract_youtube_video_data
+from pytube import YouTube
+
+
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from langchain.llms import OpenAI
 
 def update_document_status(document, status):
     """
@@ -17,37 +24,43 @@ def update_document_status(document, status):
     document.status = status
     document.save()
 
+
+def get_youtube_video_title(url: str) -> str:
+    """
+    Получает название видео по ссылке на YouTube.
+    Возвращает строку с названием или сообщение об ошибке.
+    """
+    try:
+        yt = YouTube(url)
+        return yt.title
+    except Exception as e:
+        return f"Ошибка при получении названия: {e}"
+
+
+def extract_text_by_type(document):
+    if document.variant == Document.Variant.DOCUMENT:
+        return extract_text_from_pdf(document.file.path)
+    elif document.variant == Document.Variant.YOUTUBE:
+        text = extract_youtube_video_data(document.url)
+        title = get_youtube_video_title(document.url)
+        document.title = title if title else "Видео YouTube"
+        document.save()
+        return text
+    else:
+        return ""
+
+
 @shared_task
-def process_pdf(document_id):
-    """
-    Celery task for processing and summarizing the contents of a PDF document.
-
-    This task performs the following steps:
-    1. Loads the document by ID.
-    2. Sets its status to "PROCESSING".
-    3. Extracts text from the associated PDF file.
-    4. Splits the text into smaller chunks for summarization.
-    5. Creates LangChain document objects for each chunk.
-    6. Loads a custom LangChain summarization chain (using map-reduce).
-    7. Generates a final summary from all chunks.
-    8. Saves the summary back to the document and updates the status to "DONE".
-    9. In case of an error, sets the status to "FAILED".
-
-    Args:
-        document_id (int): The ID of the document to process.
-
-    Raises:
-        Exception: Any exception during processing will be re-raised after marking the document as FAILED.
-    """
-
-    # Retrieve the document object by ID
+def process_document(document_id):
     document = Document.objects.get(id=document_id)
     try:
         update_document_status(document, Document.Status.PROCESSING)
 
-        text = extract_text_from_pdf(document.file.path)
+        # Получаем текст в зависимости от типа документа
+        text = extract_text_by_type(document)
+
         if not text:
-            raise ValueError("No text extracted from the PDF")
+            raise ValueError("No text extracted from the document")
 
         # Разбиваем текст на чанки ОДИН раз
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -77,6 +90,13 @@ def process_pdf(document_id):
         # Эмбеддинги для RAG (параллельно)
         create_embeddings_and_store(document, chunk_objs)
 
+        if document.variant == Document.Variant.YOUTUBE:
+            chain = get_title_generation_chain()
+            generated_title = chain.run(summary_text=document.summary)
+            document.title = generated_title
+            print(f"Generated title: {generated_title}")
+
+            document.save()
         update_document_status(document, Document.Status.DONE)
 
     except Exception as e:

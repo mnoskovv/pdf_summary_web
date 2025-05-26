@@ -1,23 +1,47 @@
 from django import forms
 from .models import Document
+from django import forms
+from .models import Document
 
 class DocumentUploadForm(forms.ModelForm):
     class Meta:
         model = Document
-        fields = ['file']
+        fields = ['file', 'title', 'url']  # variant — программно
 
-    def clean_file(self):
-        file = self.cleaned_data.get('file')
-        if not file.name.endswith('.pdf'):
-            raise forms.ValidationError("Only PDF-files allowed.")
-        # 10 MB limit
-        if file.size > 10 * 1024 * 1024:  
-            raise forms.ValidationError("File too large Max 10 mb.")
-        return file
+    def clean(self):
+        cleaned_data = super().clean()
+        file = cleaned_data.get('file')
+        url = cleaned_data.get('url')
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['file'].widget.attrs.update({
-            'class': 'form-control',
-            'accept': 'application/pdf'
-        })
+        if file and url:
+            raise forms.ValidationError("You should provide either a file or a URL, not both.")
+
+        if file:
+            variant = Document.Variant.DOCUMENT
+
+            if not file.name.endswith('.pdf'):
+                self.add_error('file', "Only PDF files allowed.")
+            if file.size > 10 * 1024 * 1024:
+                self.add_error('file', "File too large. Max 10 MB.")
+
+            cleaned_data['variant'] = variant
+
+        elif url:
+            variant = Document.Variant.YOUTUBE
+
+            if "youtube.com" not in url and "youtu.be" not in url:
+                self.add_error('url', "Enter a valid YouTube URL.")
+
+            cleaned_data['variant'] = variant
+
+        else:
+            raise forms.ValidationError("Either a file or a URL must be provided.")
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.variant = self.cleaned_data.get('variant')  # <- вот тут ключ
+        if commit:
+            instance.save()
+        return instance
